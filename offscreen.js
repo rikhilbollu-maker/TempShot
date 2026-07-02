@@ -31,10 +31,48 @@ async function copyImageSrc(src) {
   return ok;
 }
 
+/**
+ * Synthesized camera-shutter click via WebAudio — no audio asset to ship,
+ * and extension pages are exempt from autoplay gesture requirements.
+ */
+let audioCtx = null;
+function playShutter() {
+  audioCtx = audioCtx || new AudioContext();
+  const now = audioCtx.currentTime;
+
+  // Sharp descending click (the "shutter")…
+  const osc = audioCtx.createOscillator();
+  const oscGain = audioCtx.createGain();
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(2200, now);
+  osc.frequency.exponentialRampToValueAtTime(320, now + 0.09);
+  oscGain.gain.setValueAtTime(0.22, now);
+  oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.13);
+  osc.connect(oscGain).connect(audioCtx.destination);
+  osc.start(now);
+  osc.stop(now + 0.15);
+
+  // …plus a tiny noise tick for texture.
+  const len = Math.floor(audioCtx.sampleRate * 0.03);
+  const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+  const noise = audioCtx.createBufferSource();
+  const noiseGain = audioCtx.createGain();
+  noise.buffer = buf;
+  noiseGain.gain.setValueAtTime(0.12, now);
+  noise.connect(noiseGain).connect(audioCtx.destination);
+  noise.start(now);
+  return true;
+}
+
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (!msg || !msg.offscreen) return;
 
   (async () => {
+    if (msg.op === 'play-sound') {
+      return playShutter();
+    }
     if (msg.op === 'copy-image') {
       return copyImageSrc(msg.dataUrl);
     }

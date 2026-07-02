@@ -108,8 +108,8 @@ async function ensureOffscreenDocument() {
   try {
     await chrome.offscreen.createDocument({
       url: 'offscreen.html',
-      reasons: ['CLIPBOARD'],
-      justification: 'Copy captured screenshots to the clipboard'
+      reasons: ['CLIPBOARD', 'AUDIO_PLAYBACK'],
+      justification: 'Copy captured screenshots to the clipboard and play the shutter sound'
     });
   } catch (err) {
     // Another capture may have raced us to create it; that's fine.
@@ -117,7 +117,7 @@ async function ensureOffscreenDocument() {
   }
 }
 
-async function copyViaOffscreen(payload) {
+async function offscreenSend(payload) {
   try {
     await ensureOffscreenDocument();
     const res = await chrome.runtime.sendMessage({ offscreen: true, ...payload });
@@ -125,6 +125,76 @@ async function copyViaOffscreen(payload) {
   } catch {
     return false;
   }
+}
+
+/**
+ * Service workers have no FileReader; base64-encode manually. Used to hand
+ * full-page captures to the in-page clipboard writer.
+ */
+async function blobToDataUrl(blob) {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let binary = '';
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+  }
+  return `data:${blob.type};base64,${btoa(binary)}`;
+}
+
+/**
+ * Post-capture feedback so a shortcut capture is unmistakable without
+ * opening the popup:
+ *  - white flash + fading status pill injected into the page (macOS-style)
+ *  - synthesized shutter sound via the offscreen document (toggleable)
+ *  - a brief ✓ badge on the toolbar icon (works even on restricted pages
+ *    where injection fails)
+ * Injection happens strictly AFTER captureVisibleTab so the overlay never
+ * appears in the screenshot itself.
+ */
+async function signalCaptured(tabId, label, settings) {
+  if (settings.captureSound) {
+    offscreenSend({ op: 'play-sound' }); // fire and forget
+  }
+
+  try {
+    chrome.action.setBadgeBackgroundColor({ color: '#4f46e5' });
+    chrome.action.setBadgeText({ text: '✓' });
+    setTimeout(() => chrome.action.setBadgeText({ text: '' }), 1800);
+  } catch { /* badge is nice-to-have */ }
+
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      args: [label],
+      func: (text) => {
+        const Z = 2147483647;
+        const flash = document.createElement('div');
+        flash.style.cssText =
+          `position:fixed;inset:0;background:#fff;opacity:0.55;z-index:${Z};` +
+          'pointer-events:none;transition:opacity 220ms ease-out';
+        document.documentElement.appendChild(flash);
+        requestAnimationFrame(() => {
+          flash.style.opacity = '0';
+          setTimeout(() => flash.remove(), 260);
+        });
+
+        const pill = document.createElement('div');
+        pill.textContent = text;
+        pill.style.cssText =
+          `position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:${Z};` +
+          'background:rgba(23,24,28,.92);color:#fff;padding:8px 14px;border-radius:999px;' +
+          'font:600 13px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;' +
+          'pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,.25);' +
+          'opacity:0;transition:opacity 180ms ease-out';
+        document.documentElement.appendChild(pill);
+        requestAnimationFrame(() => { pill.style.opacity = '1'; });
+        setTimeout(() => {
+          pill.style.opacity = '0';
+          setTimeout(() => pill.remove(), 220);
+        }, 1700);
+      }
+    });
+  } catch { /* restricted page — badge and sound already covered it */ }
 }
 
 async function copyToClipboard(tabId, dataUrl) {
@@ -146,7 +216,7 @@ async function copyToClipboard(tabId, dataUrl) {
   } catch {
     // Injection blocked (PDF viewer, chrome:// pages, Web Store) — fall through.
   }
-  return copyViaOffscreen({ op: 'copy-image', dataUrl });
+  return offscreenSend({ op: 'copy-image', dataUrl });
 }
 
 function notify(message) {
@@ -200,6 +270,14 @@ export async function captureVisible(source) {
   if (settings.autoCopy) {
     copied = await copyToClipboard(tab.id, dataUrl);
   }
+
+  // Flash + pill + shutter sound + toolbar badge — after the capture, so
+  // none of it appears in the screenshot.
+  await signalCaptured(
+    tab.id,
+    copied ? 'TempShot saved · copied to clipboard' : 'TempShot saved temporarily',
+    settings
+  );
 
   if (source === 'command') {
     notify(copied ? 'Saved temporarily and copied to clipboard.' : 'TempShot saved temporarily.');
@@ -310,13 +388,29 @@ export async function startFullCapture() {
     };
     await saveShot(meta, stitched.blob);
 
-    // Auto-copy applies to full-page captures too. The stitched image can be
-    // huge, so skip the message channel and let the offscreen document read
-    // it back from IndexedDB by id.
+    // Auto-copy applies to full-page captures too, using the same reliable
+    // in-page clipboard path as visible captures (full-page only works on
+    // normal pages, so injection is available). Very large stitches skip the
+    // base64 round-trip and fall back to the offscreen document, which reads
+    // the blob back from IndexedDB by id.
     const settings = await getSettings();
+    let copied = false;
     if (settings.autoCopy) {
-      await copyViaOffscreen({ op: 'copy-shot', id: meta.id });
+      const MAX_INLINE_COPY_BYTES = 24 * 1024 * 1024;
+      if (stitched.blob.size <= MAX_INLINE_COPY_BYTES) {
+        copied = await copyToClipboard(tab.id, await blobToDataUrl(stitched.blob));
+      } else {
+        copied = await offscreenSend({ op: 'copy-shot', id: meta.id });
+      }
     }
+
+    // Same unmistakable feedback as visible captures (flash, pill, sound,
+    // badge) — the popup may be closed, especially for shortcut captures.
+    await signalCaptured(
+      tab.id,
+      copied ? 'Full page saved · copied to clipboard' : 'Full page saved temporarily',
+      settings
+    );
 
     broadcast({ evt: 'shots-updated' });
     broadcast({ evt: 'capture-done', id: meta.id, cancelled: fullCapture.cancelled });

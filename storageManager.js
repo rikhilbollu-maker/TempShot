@@ -25,6 +25,8 @@ export const DEFAULT_SETTINGS = {
   // Copy the screenshot to the clipboard immediately after capture.
   // On by default to match the macOS screenshot-to-clipboard workflow.
   autoCopy: true,
+  // Play a shutter sound after capture so shortcut captures are unmistakable.
+  captureSound: true,
   // Default export format for full-page captures: 'png' | 'pdf'.
   defaultExport: 'png'
 };
