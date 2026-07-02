@@ -84,8 +84,9 @@ rest auto-expire.
 
 ## Permissions used
 
-`activeTab` (capture the tab you invoke it on), `storage` (settings),
-`scripting` (inject the scroll script on demand), `tabs` (page title/URL
-metadata), `alarms` (auto-delete sweep), `notifications` (post-capture toast
-for shortcut captures), `clipboardWrite` (auto-copy), `offscreen` (clipboard
-fallback for pages that block injection). No host permissions.
+`activeTab` (capture the tab you invoke it on — also provides its title/URL,
+so no `tabs` permission is needed), `storage` (settings), `scripting` (inject
+the scroll script on demand), `alarms` (auto-delete sweep), `notifications`
+(post-capture toast for shortcut captures), `clipboardWrite` (auto-copy),
+`offscreen` (clipboard fallback for pages that block injection). No host
+permissions. See [PRIVACY.md](PRIVACY.md).

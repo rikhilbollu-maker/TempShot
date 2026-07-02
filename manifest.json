@@ -2,14 +2,13 @@
   "manifest_version": 3,
   "name": "TempShot",
   "description": "Temporary screenshots for AI workflows. Fast, private, local. Nothing ever leaves your browser.",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "minimum_chrome_version": "116",
 
   "permissions": [
     "activeTab",
     "storage",
     "scripting",
-    "tabs",
     "alarms",
     "notifications",
     "clipboardWrite",
