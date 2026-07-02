@@ -16,17 +16,21 @@
     </header>
 
     <section class="card">
-      <h2>Keyboard shortcut</h2>
-      <p>
-        Press <kbd id="shortcut">Alt+Shift+S</kbd> on any normal page to capture the
-        visible area. The screenshot is saved <em>temporarily inside TempShot</em> —
-        nothing is downloaded to your desktop.
-      </p>
+      <h2>Keyboard shortcuts</h2>
+      <div class="field">
+        <span>Capture visible area <small class="muted">saved temporarily inside TempShot — never downloaded</small></span>
+        <kbd id="shortcut-visible">…</kbd>
+      </div>
+      <div class="field">
+        <span>Capture full page <small class="muted">optional — also available as a button in the popup</small></span>
+        <kbd id="shortcut-fullpage">…</kbd>
+      </div>
+      <button id="editShortcuts" class="btn">Change keyboard shortcuts…</button>
       <p class="muted">
-        To change the shortcut — or bind an optional shortcut for
-        <strong>full-page capture</strong> — open
-        <code>chrome://extensions/shortcuts</code>. Chrome lets you pick any
-        key combination there; extensions cannot change bindings for you.
+        Chrome keeps all extension shortcuts in one protected editor (so no
+        extension can silently take over your keys). The button opens it with
+        TempShot listed — click a box, press the combo you want, done. Your
+        choice shows up here automatically.
       </p>
     </section>
 

@@ -255,6 +255,13 @@ $('btn-clear').addEventListener('click', async () => {
 
 $('btn-settings').addEventListener('click', () => chrome.runtime.openOptionsPage());
 
+// Deep-link into Chrome's protected shortcut editor — extensions can open it,
+// but only the user can change bindings there (anti-hijacking rule).
+$('edit-shortcuts').addEventListener('click', (e) => {
+  e.preventDefault();
+  chrome.tabs.create({ url: 'chrome://extensions/shortcuts' });
+});
+
 /* ---------- init ---------- */
 
 (async function init() {

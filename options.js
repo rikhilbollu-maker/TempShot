@@ -20,13 +20,28 @@ function flash(message) {
   $('autoCopy').checked = settings.autoCopy;
   $('defaultExport').value = settings.defaultExport;
 
-  // Reflect the user's actual shortcut binding, if any.
-  try {
-    const commands = await chrome.commands.getAll();
-    const cmd = commands.find((c) => c.name === 'capture-visible');
-    if (cmd?.shortcut) $('shortcut').textContent = cmd.shortcut;
-    else $('shortcut').textContent = 'not set';
-  } catch { /* keep default */ }
+  // Reflect the user's actual shortcut bindings. Chrome forbids extensions
+  // from *setting* shortcuts (anti-hijacking rule), but we can read them and
+  // deep-link into Chrome's shortcut editor.
+  async function refreshShortcuts() {
+    try {
+      const commands = await chrome.commands.getAll();
+      const label = (name) => {
+        const cmd = commands.find((c) => c.name === name);
+        return cmd?.shortcut || 'not set';
+      };
+      $('shortcut-visible').textContent = label('capture-visible');
+      $('shortcut-fullpage').textContent = label('capture-fullpage');
+    } catch { /* keep defaults */ }
+  }
+  await refreshShortcuts();
+  // Re-read when the user comes back from the shortcut editor, so their new
+  // binding shows up here without a reload.
+  window.addEventListener('focus', refreshShortcuts);
+
+  $('editShortcuts').addEventListener('click', () => {
+    chrome.tabs.create({ url: 'chrome://extensions/shortcuts' });
+  });
 
   $('autoDelete').addEventListener('change', async (e) => {
     await setSettings({ autoDeleteMs: Number(e.target.value) });
