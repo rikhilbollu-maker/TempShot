@@ -12,7 +12,8 @@
     "tabs",
     "alarms",
     "notifications",
-    "clipboardWrite"
+    "clipboardWrite",
+    "offscreen"
   ],
 
   "background": {

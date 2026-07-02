@@ -93,25 +93,60 @@ function sendToTab(tabId, msg) {
 }
 
 /**
- * Best-effort: copy a captured image to the clipboard by running a tiny
- * script inside the page. The service worker itself has no clipboard access;
- * the focused tab does (with the clipboardWrite permission). Fails silently
- * on pages that block script injection.
+ * Copy a captured image to the clipboard (macOS-screenshot-style auto-copy).
+ * The service worker has no DOM and therefore no clipboard, so two paths:
+ *
+ *  1. Preferred: run navigator.clipboard.write() inside the captured page.
+ *     The page is focused (the user just pressed the shortcut there), so
+ *     this puts a real PNG on the clipboard.
+ *  2. Fallback: an offscreen document (chrome.offscreen, reason CLIPBOARD)
+ *     that copies via execCommand — works even on pages that block script
+ *     injection, like Chrome's PDF viewer and chrome:// pages.
  */
-async function copyToClipboardViaTab(tabId, dataUrl) {
+async function ensureOffscreenDocument() {
+  if (await chrome.offscreen.hasDocument()) return;
   try {
-    await chrome.scripting.executeScript({
-      target: { tabId },
-      args: [dataUrl],
-      func: async (url) => {
-        const blob = await (await fetch(url)).blob();
-        await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
-      }
+    await chrome.offscreen.createDocument({
+      url: 'offscreen.html',
+      reasons: ['CLIPBOARD'],
+      justification: 'Copy captured screenshots to the clipboard'
     });
-    return true;
+  } catch (err) {
+    // Another capture may have raced us to create it; that's fine.
+    if (!String(err).toLowerCase().includes('single offscreen')) throw err;
+  }
+}
+
+async function copyViaOffscreen(payload) {
+  try {
+    await ensureOffscreenDocument();
+    const res = await chrome.runtime.sendMessage({ offscreen: true, ...payload });
+    return !!res?.ok;
   } catch {
     return false;
   }
+}
+
+async function copyToClipboard(tabId, dataUrl) {
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId },
+      args: [dataUrl],
+      func: async (url) => {
+        try {
+          const blob = await (await fetch(url)).blob();
+          await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+          return true;
+        } catch {
+          return false;
+        }
+      }
+    });
+    if (results?.[0]?.result === true) return true;
+  } catch {
+    // Injection blocked (PDF viewer, chrome:// pages, Web Store) — fall through.
+  }
+  return copyViaOffscreen({ op: 'copy-image', dataUrl });
 }
 
 function notify(message) {
@@ -163,7 +198,7 @@ export async function captureVisible(source) {
   const settings = await getSettings();
   let copied = false;
   if (settings.autoCopy) {
-    copied = await copyToClipboardViaTab(tab.id, dataUrl);
+    copied = await copyToClipboard(tab.id, dataUrl);
   }
 
   if (source === 'command') {
@@ -216,6 +251,17 @@ export async function startFullCapture() {
     metrics = await sendToTab(tab.id, { op: 'measure' });
     if (!metrics || !metrics.viewportHeight) throw new Error('Could not measure the page.');
 
+    // Chrome's built-in PDF viewer renders inside an internal <embed> that no
+    // extension can scroll or read — scroll capture there would just repeat
+    // the same frame. Fail fast with actionable guidance instead.
+    if (metrics.isPdf) {
+      throw new Error(
+        "This is Chrome's built-in PDF viewer, which extensions cannot scroll. " +
+        'Options: capture each page with the visible-area shortcut, or press ' +
+        '⌘P / Ctrl+P and "Save as PDF" to keep the original file.'
+      );
+    }
+
     const total = Math.min(MAX_SEGMENTS, Math.max(1, Math.ceil(metrics.scrollHeight / metrics.viewportHeight)));
     fullCapture.total = total;
     broadcast({ evt: 'capture-progress', current: 0, total });
@@ -263,6 +309,14 @@ export async function startFullCapture() {
       thumb: await makeThumbnail(stitched.blob)
     };
     await saveShot(meta, stitched.blob);
+
+    // Auto-copy applies to full-page captures too. The stitched image can be
+    // huge, so skip the message channel and let the offscreen document read
+    // it back from IndexedDB by id.
+    const settings = await getSettings();
+    if (settings.autoCopy) {
+      await copyViaOffscreen({ op: 'copy-shot', id: meta.id });
+    }
 
     broadcast({ evt: 'shots-updated' });
     broadcast({ evt: 'capture-done', id: meta.id, cancelled: fullCapture.cancelled });

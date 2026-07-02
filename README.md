@@ -19,7 +19,10 @@ rest auto-expire.
 - Per-screenshot actions: **Copy** (clipboard), **Download**, **Preview**, **Delete**
 - **Copy latest** one-click button and **Clear all**
 - **Auto-delete** after 1 hour / 24 hours / 7 days / never (default: 24 hours)
-- Optional **auto-copy to clipboard** immediately after capture
+- **Auto-copy to clipboard** after capture (on by default, like macOS
+  screenshots — capture, then paste straight into your AI chat). Uses the
+  focused page's clipboard when possible, with an offscreen-document fallback
+  for pages that block script injection
 
 ### Full-page scroll capture (secondary)
 - "Capture Full Page" scrolls the page top to bottom, captures each viewport,
@@ -71,8 +74,10 @@ rest auto-expire.
   a friendly message.
 - **Chrome's built-in PDF viewer** renders in an internal surface that content
   scripts cannot scroll or measure, so *full-page* capture of browser-viewed
-  PDFs generally fails. The *visible-area* shortcut still works there
-  page-by-page, and HTML-based viewers (e.g. Google Docs preview) work fine.
+  PDFs is impossible for any extension. TempShot detects the PDF viewer and
+  explains this instead of saving a single repeated frame. The *visible-area*
+  shortcut still works there page-by-page, and HTML-based viewers (e.g.
+  Google Docs preview) work fine.
 - **Rate limit**: `chrome.tabs.captureVisibleTab` is capped at 2 calls/second
   by Chrome, so full-page capture speed is bounded (~0.7 s per section).
 - **Clipboard auto-copy** is best-effort; some pages block clipboard writes.
@@ -82,5 +87,5 @@ rest auto-expire.
 `activeTab` (capture the tab you invoke it on), `storage` (settings),
 `scripting` (inject the scroll script on demand), `tabs` (page title/URL
 metadata), `alarms` (auto-delete sweep), `notifications` (post-capture toast
-for shortcut captures), `clipboardWrite` (optional auto-copy). No host
-permissions.
+for shortcut captures), `clipboardWrite` (auto-copy), `offscreen` (clipboard
+fallback for pages that block injection). No host permissions.

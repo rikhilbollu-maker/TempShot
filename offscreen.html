@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<!--
+  offscreen.html — invisible helper page for clipboard writes.
+
+  MV3 service workers have no DOM and therefore no clipboard access, and
+  navigator.clipboard.write() fails in unfocused documents. The offscreen
+  API (reason: CLIPBOARD) exists precisely for this: document.execCommand
+  ('copy') still works without focus, so we select an <img> and copy it.
+  Used as a fallback when the captured page itself blocks script injection
+  (Chrome's PDF viewer, chrome:// pages, the Web Store).
+-->
+<html>
+<head><meta charset="UTF-8" /></head>
+<body>
+  <img id="stage" alt="" />
+  <script type="module" src="offscreen.js"></script>
+</body>
+</html>

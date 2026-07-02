@@ -5,9 +5,11 @@
  * you explicitly capture it.
  *
  * Responsibilities:
- *  - measure page height / viewport / devicePixelRatio
- *  - scroll step-by-step and report the *actual* scroll position (pages clamp
- *    at the bottom, sticky containers exist, etc.)
+ *  - detect Chrome's built-in PDF viewer (cannot be scrolled by extensions)
+ *  - find what actually scrolls: the window, or an inner container (many
+ *    modern apps — docs, dashboards, SPAs — scroll a div, not the window)
+ *  - scroll step-by-step and report the *actual* position (pages clamp at the
+ *    bottom, containers have their own limits)
  *  - hide position:fixed/sticky elements after the first frame so headers and
  *    cookie banners don't repeat in every stitched section
  *  - restore scroll position and styles when done
@@ -19,30 +21,80 @@ if (!window.__tempshotInjected) {
 
   const state = {
     hidden: [],          // [element, previousInlineVisibility]
+    scroller: null,      // null = the window scrolls; else the inner container
     savedX: 0,
     savedY: 0,
-    savedBehavior: null  // html { scroll-behavior } to restore
+    savedBehavior: null  // inline scroll-behavior to restore [element, value]
   };
 
-  function pageScrollHeight() {
-    const de = document.documentElement;
-    const body = document.body;
-    return Math.max(
-      de ? de.scrollHeight : 0,
-      body ? body.scrollHeight : 0
-    );
+  function rootScrollHeight() {
+    const root = document.scrollingElement || document.documentElement;
+    return root ? root.scrollHeight : 0;
   }
+
+  /**
+   * Chrome's PDF viewer: the top-level document (when scriptable at all) is a
+   * thin wrapper around a full-viewport <embed> of the internal PDF plugin.
+   * The wrapper itself never scrolls, so scroll capture is impossible.
+   */
+  function detectPdfViewer() {
+    const embed = document.querySelector(
+      'embed[type="application/pdf"], embed[type="application/x-google-chrome-pdf"]'
+    );
+    if (!embed) return false;
+    const r = embed.getBoundingClientRect();
+    // The PDF embed fills essentially the whole viewport in the viewer.
+    return r.width >= window.innerWidth * 0.9 && r.height >= window.innerHeight * 0.9;
+  }
+
+  /**
+   * Figure out what scrolls. If the root element overflows the viewport, the
+   * window scrolls (the common case). Otherwise hunt for the largest
+   * scrollable container — SPA layouts often pin <body> to 100vh and scroll
+   * an inner <div> instead, which is why naive window.scrollTo "does nothing"
+   * on those sites.
+   */
+  function findScroller() {
+    if (rootScrollHeight() > window.innerHeight + 1) return null; // window scrolls
+    let best = null;
+    let bestArea = 0;
+    let scanned = 0;
+    const MAX_SCAN = 4000;
+    for (const el of document.querySelectorAll('body *')) {
+      if (++scanned > MAX_SCAN) break;
+      if (el.scrollHeight <= el.clientHeight + 1) continue;
+      const style = getComputedStyle(el);
+      if (!/(auto|scroll|overlay)/.test(style.overflowY)) continue;
+      const r = el.getBoundingClientRect();
+      const area = r.width * r.height;
+      if (area > bestArea) {
+        bestArea = area;
+        best = el;
+      }
+    }
+    return best;
+  }
+
+  const getScrollTop = () => (state.scroller ? state.scroller.scrollTop : window.scrollY);
+  const setScrollTop = (y) => {
+    if (state.scroller) state.scroller.scrollTop = y;
+    else window.scrollTo(0, y);
+  };
 
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (!msg || !msg.tempshot) return;
 
     switch (msg.op) {
       case 'measure': {
+        state.scroller = findScroller();
+        const s = state.scroller;
         sendResponse({
-          scrollHeight: pageScrollHeight(),
-          viewportHeight: window.innerHeight,
+          scrollHeight: s ? s.scrollHeight : rootScrollHeight(),
+          viewportHeight: s ? s.clientHeight : window.innerHeight,
           viewportWidth: window.innerWidth,
           dpr: window.devicePixelRatio || 1,
+          isPdf: detectPdfViewer(),
+          usesInnerScroller: !!s,
           title: document.title,
           url: location.href
         });
@@ -51,24 +103,26 @@ if (!window.__tempshotInjected) {
 
       case 'prepare': {
         state.savedX = window.scrollX;
-        state.savedY = window.scrollY;
+        state.savedY = getScrollTop();
         // Smooth scrolling would make "scroll then screenshot" race; force
-        // instant scrolling for the duration of the capture.
-        state.savedBehavior = document.documentElement.style.scrollBehavior;
-        document.documentElement.style.scrollBehavior = 'auto';
+        // instant scrolling on whichever element actually scrolls.
+        const target = state.scroller || document.documentElement;
+        state.savedBehavior = [target, target.style.scrollBehavior];
+        target.style.scrollBehavior = 'auto';
         sendResponse({ ok: true });
         return;
       }
 
       case 'scrollTo': {
-        window.scrollTo(0, msg.y);
+        setScrollTop(msg.y);
         // Wait for layout, images, and lazy-loaded content to settle, then
         // one more animation frame so paint reflects the new position.
         setTimeout(() => {
           requestAnimationFrame(() => {
             sendResponse({
-              y: window.scrollY,
-              scrollHeight: pageScrollHeight() // may grow on lazy/infinite pages
+              y: getScrollTop(),
+              // May grow on lazy/infinite pages; the worker caps segments.
+              scrollHeight: state.scroller ? state.scroller.scrollHeight : rootScrollHeight()
             });
           });
         }, msg.settleMs || 300);
@@ -99,11 +153,14 @@ if (!window.__tempshotInjected) {
           else el.style.removeProperty('visibility');
         }
         state.hidden = [];
-        if (state.savedBehavior !== null) {
-          document.documentElement.style.scrollBehavior = state.savedBehavior;
+        if (state.savedBehavior) {
+          const [target, value] = state.savedBehavior;
+          if (value) target.style.scrollBehavior = value;
+          else target.style.removeProperty('scroll-behavior');
           state.savedBehavior = null;
         }
-        window.scrollTo(state.savedX, state.savedY);
+        setScrollTop(state.savedY);
+        if (!state.scroller) window.scrollTo(state.savedX, state.savedY);
         sendResponse({ ok: true });
         return;
       }

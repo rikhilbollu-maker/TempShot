@@ -23,7 +23,8 @@ export const DEFAULT_SETTINGS = {
   // Auto-delete window in milliseconds. 0 = never auto-delete.
   autoDeleteMs: 24 * 60 * 60 * 1000, // default: 24 hours ("temporary" by design)
   // Copy the screenshot to the clipboard immediately after capture.
-  autoCopy: false,
+  // On by default to match the macOS screenshot-to-clipboard workflow.
+  autoCopy: true,
   // Default export format for full-page captures: 'png' | 'pdf'.
   defaultExport: 'png'
 };
