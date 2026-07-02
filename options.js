@@ -18,7 +18,6 @@ function flash(message) {
   const settings = await getSettings();
   $('autoDelete').value = String(settings.autoDeleteMs);
   $('autoCopy').checked = settings.autoCopy;
-  $('captureSound').checked = settings.captureSound;
   $('defaultExport').value = settings.defaultExport;
 
   // Reflect the user's actual shortcut bindings. Chrome forbids extensions
@@ -51,11 +50,6 @@ function flash(message) {
 
   $('autoCopy').addEventListener('change', async (e) => {
     await setSettings({ autoCopy: e.target.checked });
-    flash('Saved.');
-  });
-
-  $('captureSound').addEventListener('change', async (e) => {
-    await setSettings({ captureSound: e.target.checked });
     flash('Saved.');
   });
 

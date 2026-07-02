@@ -108,8 +108,8 @@ async function ensureOffscreenDocument() {
   try {
     await chrome.offscreen.createDocument({
       url: 'offscreen.html',
-      reasons: ['CLIPBOARD', 'AUDIO_PLAYBACK'],
-      justification: 'Copy captured screenshots to the clipboard and play the shutter sound'
+      reasons: ['CLIPBOARD'],
+      justification: 'Copy captured screenshots to the clipboard'
     });
   } catch (err) {
     // Another capture may have raced us to create it; that's fine.
@@ -145,17 +145,12 @@ async function blobToDataUrl(blob) {
  * Post-capture feedback so a shortcut capture is unmistakable without
  * opening the popup:
  *  - white flash + fading status pill injected into the page (macOS-style)
- *  - synthesized shutter sound via the offscreen document (toggleable)
  *  - a brief ✓ badge on the toolbar icon (works even on restricted pages
  *    where injection fails)
  * Injection happens strictly AFTER captureVisibleTab so the overlay never
  * appears in the screenshot itself.
  */
-async function signalCaptured(tabId, label, settings) {
-  if (settings.captureSound) {
-    offscreenSend({ op: 'play-sound' }); // fire and forget
-  }
-
+async function signalCaptured(tabId, label) {
   try {
     chrome.action.setBadgeBackgroundColor({ color: '#4f46e5' });
     chrome.action.setBadgeText({ text: '✓' });
@@ -271,12 +266,11 @@ export async function captureVisible(source) {
     copied = await copyToClipboard(tab.id, dataUrl);
   }
 
-  // Flash + pill + shutter sound + toolbar badge — after the capture, so
-  // none of it appears in the screenshot.
+  // Flash + pill + toolbar badge — after the capture, so none of it appears
+  // in the screenshot.
   await signalCaptured(
     tab.id,
-    copied ? 'TempShot saved · copied to clipboard' : 'TempShot saved temporarily',
-    settings
+    copied ? 'TempShot saved · copied to clipboard' : 'TempShot saved temporarily'
   );
 
   if (source === 'command') {
@@ -404,12 +398,11 @@ export async function startFullCapture() {
       }
     }
 
-    // Same unmistakable feedback as visible captures (flash, pill, sound,
-    // badge) — the popup may be closed, especially for shortcut captures.
+    // Same unmistakable feedback as visible captures (flash, pill, badge) —
+    // the popup may be closed, especially for shortcut captures.
     await signalCaptured(
       tab.id,
-      copied ? 'Full page saved · copied to clipboard' : 'Full page saved temporarily',
-      settings
+      copied ? 'Full page saved · copied to clipboard' : 'Full page saved temporarily'
     );
 
     broadcast({ evt: 'shots-updated' });
