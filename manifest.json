@@ -40,6 +40,9 @@
         "mac": "Alt+Shift+S"
       },
       "description": "Capture visible tab area (saved temporarily in TempShot)"
+    },
+    "capture-fullpage": {
+      "description": "Capture full page / scroll capture (optional — bind at chrome://extensions/shortcuts)"
     }
   },
 

@@ -35,14 +35,33 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 });
 
-// Keyboard shortcut → capture visible area, save temporarily. Never downloads.
+// Keyboard shortcuts. Users can rebind (or bind the optional full-page
+// shortcut) at chrome://extensions/shortcuts — extensions cannot change
+// bindings programmatically; that page is user-controlled by design.
+// Pressing a shortcut grants activeTab, so capture works without host perms.
 chrome.commands.onCommand.addListener((command) => {
   if (command === 'capture-visible') {
     captureVisible('command').catch(() => {
       // captureVisible already surfaced a notification on failure.
     });
+  } else if (command === 'capture-fullpage') {
+    // Popup is closed during a shortcut capture, so report the outcome via a
+    // system notification instead of popup events.
+    startFullCapture()
+      .then((res) => notify(res.cancelled ? 'Cancelled — partial capture saved.' : 'Full page saved temporarily.'))
+      .catch((err) => notify(`Full-page capture failed: ${err?.message || err}`));
   }
 });
+
+function notify(message) {
+  chrome.notifications.create({
+    type: 'basic',
+    iconUrl: 'icons/icon128.png',
+    title: 'TempShot',
+    message,
+    silent: true
+  });
+}
 
 // RPC for popup.js. Returns {ok, data} / {ok:false, error} envelopes.
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
