@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>TempShot Settings</title>
+  <link rel="stylesheet" href="options.css" />
+</head>
+<body>
+  <main class="wrap">
+    <header class="header">
+      <img src="icons/icon48.png" alt="" width="32" height="32" />
+      <div>
+        <h1>TempShot Settings</h1>
+        <p>Temporary screenshots for AI workflows — fast, private, local.</p>
+      </div>
+    </header>
+
+    <section class="card">
+      <h2>Keyboard shortcut</h2>
+      <p>
+        Press <kbd id="shortcut">Alt+Shift+S</kbd> on any normal page to capture the
+        visible area. The screenshot is saved <em>temporarily inside TempShot</em> —
+        nothing is downloaded to your desktop.
+      </p>
+      <p class="muted">
+        To change the shortcut, open <code>chrome://extensions/shortcuts</code>
+        (Chrome does not let extensions open or change this page for you).
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>Auto-delete</h2>
+      <p class="muted">Screenshots are temporary by design. Choose how long they stick around.</p>
+      <label class="field">
+        <span>Delete screenshots after</span>
+        <select id="autoDelete">
+          <option value="3600000">1 hour</option>
+          <option value="86400000">24 hours</option>
+          <option value="604800000">7 days</option>
+          <option value="0">Never auto-delete</option>
+        </select>
+      </label>
+    </section>
+
+    <section class="card">
+      <h2>Capture behavior</h2>
+      <label class="field checkbox">
+        <input type="checkbox" id="autoCopy" />
+        <span>Copy the screenshot to the clipboard immediately after capture
+          <small class="muted">Best-effort: some pages block clipboard access from extensions.</small>
+        </span>
+      </label>
+      <label class="field">
+        <span>Default export format for full-page captures</span>
+        <select id="defaultExport">
+          <option value="png">PNG image</option>
+          <option value="pdf">PDF file</option>
+        </select>
+      </label>
+    </section>
+
+    <section class="card">
+      <h2>Privacy</h2>
+      <p class="muted">
+        TempShot is 100% local. Screenshots live in your browser's extension
+        storage (IndexedDB) until deleted, auto-deleted, or exported by you.
+        No uploads, no accounts, no analytics — the extension makes zero
+        network requests.
+      </p>
+      <button id="clearAll" class="btn danger">Clear all screenshot data</button>
+    </section>
+
+    <p id="status" class="status"></p>
+  </main>
+
+  <script type="module" src="options.js"></script>
+</body>
+</html>

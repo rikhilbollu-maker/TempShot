@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>TempShot</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header class="header">
+    <div class="brand">
+      <img src="icons/icon32.png" alt="" width="20" height="20" />
+      <div>
+        <h1>TempShot</h1>
+        <p class="tagline">Temporary screenshots for AI workflows</p>
+      </div>
+    </div>
+    <button id="btn-settings" class="icon-btn" title="Settings" aria-label="Settings">⚙</button>
+  </header>
+
+  <div class="actions">
+    <button id="btn-capture" class="btn primary">Capture Visible Area</button>
+    <button id="btn-fullpage" class="btn secondary">Capture Full Page</button>
+  </div>
+  <p class="shortcut-hint" id="shortcut-hint">Shortcut: Alt+Shift+S</p>
+
+  <!-- Full-page capture progress (hidden unless a capture is running) -->
+  <div id="progress" class="progress hidden">
+    <div class="progress-row">
+      <span id="progress-label">Capturing section 1 of 12…</span>
+      <button id="btn-cancel" class="btn tiny danger">Cancel</button>
+    </div>
+    <div class="progress-track"><div id="progress-bar" class="progress-fill"></div></div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <section class="gallery-head">
+    <h2>Recent screenshots</h2>
+    <div class="gallery-tools">
+      <button id="btn-copy-latest" class="btn tiny">Copy latest</button>
+      <button id="btn-clear" class="btn tiny danger">Clear all</button>
+    </div>
+  </section>
+
+  <ul id="gallery" class="gallery"></ul>
+  <p id="empty" class="empty hidden">
+    No screenshots yet.<br />
+    Press <strong>Alt+Shift+S</strong> or click <strong>Capture Visible Area</strong>.<br />
+    <span class="muted">Everything stays local in your browser.</span>
+  </p>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

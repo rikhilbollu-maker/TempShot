@@ -1,0 +1,102 @@
+/* TempShot options page — same visual language as the popup. */
+
+:root {
+  --bg: #f7f7f9;
+  --surface: #ffffff;
+  --border: #e2e4e9;
+  --text: #17181c;
+  --muted: #6b7280;
+  --accent: #4f46e5;
+  --danger: #dc2626;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121318;
+    --surface: #1d1f27;
+    --border: #33364a;
+    --text: #eceef2;
+    --muted: #9aa0ae;
+    --accent: #6366f1;
+    --danger: #f87171;
+  }
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.wrap { max-width: 620px; margin: 0 auto; padding: 32px 20px 48px; }
+
+.header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+.header h1 { font-size: 20px; letter-spacing: -0.3px; }
+.header p { color: var(--muted); font-size: 13px; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 14px;
+}
+.card h2 { font-size: 14px; margin-bottom: 8px; }
+.card p { margin-bottom: 8px; }
+
+.muted { color: var(--muted); font-size: 13px; }
+small.muted { display: block; margin-top: 2px; }
+
+kbd {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  padding: 1px 7px;
+  font-size: 12px;
+  font-family: inherit;
+}
+
+code {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 12px;
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 8px 0;
+}
+.field.checkbox { justify-content: flex-start; align-items: flex-start; }
+.field.checkbox input { margin-top: 3px; }
+
+select {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+.btn {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--bg);
+  color: var(--text);
+}
+.btn.danger { color: var(--danger); }
+.btn.danger:hover { border-color: var(--danger); }
+
+.status { text-align: center; color: var(--accent); font-size: 13px; min-height: 20px; }
