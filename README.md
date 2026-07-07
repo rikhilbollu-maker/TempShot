@@ -13,6 +13,9 @@ rest auto-expire.
 ## Features
 
 ### Temporary screenshots (core)
+- **Area capture** (`Alt+Shift+A` by default) — drag over exactly what you
+  want, macOS ⌘⇧4-style; the shot is cropped to your selection so no junk
+  reaches your AI chat. Esc cancels.
 - **Keyboard shortcut** (`Alt+Shift+S` by default) captures the visible tab area
 - Screenshots are saved to extension storage (IndexedDB), **never** auto-downloaded
 - Popup gallery with thumbnail, page title, capture time, and a visible/full-page badge

@@ -281,6 +281,84 @@ export async function captureVisible(source) {
 }
 
 /**
+ * Area (region) capture — the macOS ⌘⇧4 experience: inject a drag-to-select
+ * overlay, and when the user finishes dragging, capture the visible tab and
+ * crop it to their exact selection. The overlay removes itself before the
+ * capture so it never appears in the screenshot.
+ *
+ * Remembering the source per-tab lets captureRegion() (called later, when the
+ * selection message arrives) know whether to show a system notification.
+ */
+const pendingRegionSource = new Map(); // tabId → 'popup' | 'command'
+
+export async function startRegionCapture(source) {
+  const tab = await getActiveTab();
+  try {
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['regionSelector.js'] });
+    pendingRegionSource.set(tab.id, source);
+  } catch (err) {
+    const hint = isRestrictedUrl(tab.url)
+      ? 'This page is restricted by Chrome (browser pages, the Web Store, and other extensions cannot be captured).'
+      : (err?.message || 'Could not start area selection on this page.');
+    if (source === 'command') notify(`Area capture failed: ${hint}`);
+    throw new Error(hint);
+  }
+}
+
+/** Called when the content overlay reports the selected rect (CSS px). */
+export async function captureRegion(tab, rect, dpr) {
+  const source = pendingRegionSource.get(tab.id) || 'popup';
+  pendingRegionSource.delete(tab.id);
+
+  const dataUrl = await rateLimitedCapture(tab.windowId);
+  const bitmap = await createImageBitmap(await (await fetch(dataUrl)).blob());
+
+  // Selection is in CSS px relative to the viewport; the capture is in device
+  // px — scale by dpr and clamp to the bitmap (window edges, rounding).
+  const sx = Math.max(0, Math.min(bitmap.width - 1, Math.round(rect.x * dpr)));
+  const sy = Math.max(0, Math.min(bitmap.height - 1, Math.round(rect.y * dpr)));
+  const sw = Math.max(1, Math.min(bitmap.width - sx, Math.round(rect.w * dpr)));
+  const sh = Math.max(1, Math.min(bitmap.height - sy, Math.round(rect.h * dpr)));
+
+  const canvas = new OffscreenCanvas(sw, sh);
+  canvas.getContext('2d').drawImage(bitmap, sx, sy, sw, sh, 0, 0, sw, sh);
+  bitmap.close();
+  const cropBlob = await canvas.convertToBlob({ type: 'image/png' });
+
+  const meta = {
+    id: crypto.randomUUID(),
+    createdAt: Date.now(),
+    title: tab.title || '',
+    url: tab.url || '',
+    kind: 'region',
+    width: sw,
+    height: sh,
+    thumb: await makeThumbnail(cropBlob)
+  };
+  await saveShot(meta, cropBlob);
+
+  const settings = await getSettings();
+  let copied = false;
+  if (settings.autoCopy) {
+    copied = await copyToClipboard(tab.id, await blobToDataUrl(cropBlob));
+  }
+
+  await signalCaptured(
+    tab.id,
+    copied ? 'Selection saved · copied to clipboard' : 'Selection saved temporarily'
+  );
+  if (source === 'command') {
+    notify(copied ? 'Selection saved and copied to clipboard.' : 'Selection saved temporarily.');
+  }
+  broadcast({ evt: 'shots-updated' });
+  return { id: meta.id, copied };
+}
+
+export function regionCancelled(tabId) {
+  pendingRegionSource.delete(tabId);
+}
+
+/**
  * Full-page scroll capture: inject content script → measure → scroll top to
  * bottom capturing each viewport → stitch → save to the temporary gallery.
  *

@@ -37,7 +37,9 @@ function notFound() {
 
   document.title = `TempShot — ${meta.title || 'preview'}`;
   $('title').textContent = meta.title || meta.url || 'Screenshot';
-  const kind = meta.kind === 'fullpage' ? 'Full page' : 'Visible area';
+  const kind = meta.kind === 'fullpage' ? 'Full page'
+    : meta.kind === 'region' ? 'Selection'
+    : 'Visible area';
   $('sub').textContent = `${kind} · ${meta.width}×${meta.height} · ${new Date(meta.createdAt).toLocaleString()} · ${meta.url}`;
 
   const img = $('img');

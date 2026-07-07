@@ -126,7 +126,9 @@ async function render() {
     badge.className = `badge ${shot.kind}`;
     badge.textContent = shot.kind === 'fullpage'
       ? `Full page · ${shot.width}×${shot.height}`
-      : 'Visible';
+      : shot.kind === 'region'
+        ? `Selection · ${shot.width}×${shot.height}`
+        : 'Visible';
     sub.appendChild(badge);
     sub.appendChild(document.createTextNode(relativeTime(shot.createdAt)));
     meta.appendChild(sub);
@@ -211,6 +213,17 @@ chrome.runtime.onMessage.addListener((msg) => {
 
 /* ---------- wire up controls ---------- */
 
+$('btn-area').addEventListener('click', async () => {
+  const res = await send('captureArea');
+  if (!res?.ok) {
+    toast(res?.error || 'Could not start area selection.', true);
+    return;
+  }
+  // Close the popup so it doesn't cover the page while the user drags their
+  // selection. Feedback comes from the on-page overlay, flash, and pill.
+  window.close();
+});
+
 $('btn-capture').addEventListener('click', async () => {
   $('btn-capture').disabled = true;
   try {
@@ -267,14 +280,13 @@ $('edit-shortcuts').addEventListener('click', (e) => {
 (async function init() {
   settings = await getSettings();
 
-  // Show the user's actual shortcut (they may have rebound it at
+  // Show the user's actual shortcuts (they may have rebound them at
   // chrome://extensions/shortcuts).
   try {
     const commands = await chrome.commands.getAll();
-    const cmd = commands.find((c) => c.name === 'capture-visible');
-    $('shortcut-hint').textContent = cmd?.shortcut
-      ? `Shortcut: ${cmd.shortcut}`
-      : 'No shortcut set — configure one at chrome://extensions/shortcuts';
+    const shortcut = (name) => commands.find((c) => c.name === name)?.shortcut || 'not set';
+    $('shortcut-hint').textContent =
+      `Area: ${shortcut('capture-area')} · Visible: ${shortcut('capture-visible')}`;
   } catch { /* keep default hint */ }
 
   // Sweep expired shots on open so the gallery never shows stale items.

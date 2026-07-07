@@ -61,6 +61,7 @@ body {
 .icon-btn:hover { background: var(--surface); color: var(--text); }
 
 .actions { display: flex; gap: 8px; }
+.actions.stacked { margin-top: 8px; }
 
 .btn {
   border: 1px solid var(--border);
@@ -200,6 +201,7 @@ body {
   margin-right: 5px;
 }
 .badge.fullpage { background: var(--accent); color: #fff; }
+.badge.region { background: #0d9488; color: #fff; }
 
 .card .row-actions { display: flex; gap: 4px; margin-top: 3px; flex-wrap: wrap; }
 .card .row-actions button {

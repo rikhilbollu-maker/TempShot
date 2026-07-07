@@ -18,11 +18,14 @@
   </header>
 
   <div class="actions">
-    <button id="btn-capture" class="btn primary">Capture Visible Area</button>
+    <button id="btn-area" class="btn primary">Capture Area</button>
+    <button id="btn-capture" class="btn secondary">Capture Visible</button>
+  </div>
+  <div class="actions stacked">
     <button id="btn-fullpage" class="btn secondary">Capture Full Page</button>
   </div>
   <p class="shortcut-hint">
-    <span id="shortcut-hint">Shortcut: Alt+Shift+S</span> ·
+    <span id="shortcut-hint">Area: Alt+Shift+A · Visible: Alt+Shift+S</span> ·
     <a href="#" id="edit-shortcuts" title="Open Chrome's shortcut editor">change</a>
   </p>
 
@@ -48,7 +51,8 @@
   <ul id="gallery" class="gallery"></ul>
   <p id="empty" class="empty hidden">
     No screenshots yet.<br />
-    Press <strong>Alt+Shift+S</strong> or click <strong>Capture Visible Area</strong>.<br />
+    Press <strong>Alt+Shift+A</strong> and drag over exactly what you want,<br />
+    or <strong>Alt+Shift+S</strong> for the whole visible page.<br />
     <span class="muted">Everything stays local in your browser.</span>
   </p>
 

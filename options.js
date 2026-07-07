@@ -30,6 +30,7 @@ function flash(message) {
         const cmd = commands.find((c) => c.name === name);
         return cmd?.shortcut || 'not set';
       };
+      $('shortcut-area').textContent = label('capture-area');
       $('shortcut-visible').textContent = label('capture-visible');
       $('shortcut-fullpage').textContent = label('capture-fullpage');
     } catch { /* keep defaults */ }

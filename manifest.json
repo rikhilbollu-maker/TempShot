@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "TempShot",
   "description": "Temporary screenshots for AI workflows. Fast, private, local. Nothing ever leaves your browser.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "minimum_chrome_version": "116",
 
   "permissions": [
@@ -34,6 +34,13 @@
   "options_page": "options.html",
 
   "commands": {
+    "capture-area": {
+      "suggested_key": {
+        "default": "Alt+Shift+A",
+        "mac": "Alt+Shift+A"
+      },
+      "description": "Capture selected area — drag over exactly what you want (like ⌘⇧4)"
+    },
     "capture-visible": {
       "suggested_key": {
         "default": "Alt+Shift+S",

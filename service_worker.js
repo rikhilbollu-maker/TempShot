@@ -16,7 +16,10 @@
  *  - chrome.runtime.onMessage: RPC surface for the popup.
  */
 
-import { captureVisible, startFullCapture, cancelFullCapture, getFullCaptureState } from './captureManager.js';
+import {
+  captureVisible, startFullCapture, cancelFullCapture, getFullCaptureState,
+  startRegionCapture, captureRegion, regionCancelled
+} from './captureManager.js';
 import { purgeExpired } from './storageManager.js';
 
 const PURGE_ALARM = 'tempshot-purge';
@@ -44,6 +47,10 @@ chrome.commands.onCommand.addListener((command) => {
     captureVisible('command').catch(() => {
       // captureVisible already surfaced a notification on failure.
     });
+  } else if (command === 'capture-area') {
+    startRegionCapture('command').catch(() => {
+      // startRegionCapture already surfaced a notification on failure.
+    });
   } else if (command === 'capture-fullpage') {
     // Popup is closed during a shortcut capture, so report the outcome via a
     // system notification instead of popup events.
@@ -63,8 +70,8 @@ function notify(message) {
   });
 }
 
-// RPC for popup.js. Returns {ok, data} / {ok:false, error} envelopes.
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+// RPC for popup.js, plus messages from the region-selection overlay.
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg || !msg.cmd) return;
 
   const respond = (promise) => {
@@ -77,6 +84,16 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   switch (msg.cmd) {
     case 'captureVisible':
       return respond(captureVisible('popup'));
+    case 'captureArea':
+      return respond(startRegionCapture('popup'));
+    case 'regionSelected':
+      // From regionSelector.js in the page: user finished dragging.
+      if (sender.tab) return respond(captureRegion(sender.tab, msg.rect, msg.dpr));
+      return;
+    case 'regionCancelled':
+      if (sender.tab) regionCancelled(sender.tab.id);
+      sendResponse({ ok: true });
+      return;
     case 'startFullCapture':
       // Fire-and-forget: the capture outlives the popup. Progress and
       // completion are broadcast as 'capture-*' events; the popup can also
