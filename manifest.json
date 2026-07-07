@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "TempShot",
   "description": "Temporary screenshots for AI workflows. Fast, private, local. Nothing ever leaves your browser.",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "minimum_chrome_version": "116",
 
   "permissions": [
@@ -34,19 +34,19 @@
   "options_page": "options.html",
 
   "commands": {
-    "capture-area": {
-      "suggested_key": {
-        "default": "Alt+Shift+A",
-        "mac": "Alt+Shift+A"
-      },
-      "description": "Capture selected area — drag over exactly what you want (like ⌘⇧4)"
-    },
     "capture-visible": {
       "suggested_key": {
         "default": "Alt+Shift+S",
         "mac": "Alt+Shift+S"
       },
-      "description": "Capture visible tab area (saved temporarily in TempShot)"
+      "description": "Capture area — drag over exactly what you want (like ⌘⇧4)"
+    },
+    "capture-area": {
+      "suggested_key": {
+        "default": "Alt+Shift+A",
+        "mac": "Alt+Shift+A"
+      },
+      "description": "Capture the entire visible area instantly (no selection)"
     },
     "capture-fullpage": {
       "description": "Capture full page / scroll capture (optional — bind at chrome://extensions/shortcuts)"

@@ -386,6 +386,15 @@ export async function startFullCapture() {
   let metrics = null;
   let injected = false;
 
+  // MV3 kills service workers after ~30s without extension API activity.
+  // The capture loop resets that timer naturally (captureVisibleTab calls),
+  // but the stitching/encoding phase is pure computation and can exceed it —
+  // which used to make long captures die silently with a stuck progress bar.
+  // A cheap periodic API call keeps the worker alive until we're done.
+  const keepAlive = setInterval(() => {
+    chrome.runtime.getPlatformInfo().catch(() => {});
+  }, 15_000);
+
   try {
     // Inject on demand — contentScript.js guards against double injection.
     try {
@@ -447,6 +456,18 @@ export async function startFullCapture() {
       throw new Error(fullCapture.cancelled ? 'Capture cancelled.' : 'No sections were captured.');
     }
 
+    // Restore the page (scroll position, fixed elements) BEFORE stitching —
+    // encoding can take seconds and the user shouldn't stare at a page stuck
+    // at the bottom meanwhile.
+    if (injected) {
+      try { await sendToTab(tab.id, { op: 'cleanup' }); } catch { /* tab may be gone */ }
+      injected = false;
+    }
+
+    // Tell the popup we've moved from capturing to stitching so the progress
+    // UI never looks frozen at "section N of N".
+    broadcast({ evt: 'capture-stitching', count: segments.length });
+
     const stitched = await stitchSegments(segments, metrics);
     const meta = {
       id: crypto.randomUUID(),
@@ -459,22 +480,27 @@ export async function startFullCapture() {
       thumb: await makeThumbnail(stitched.blob)
     };
     await saveShot(meta, stitched.blob);
+    // Update the gallery the moment the save lands — clipboard/feedback below
+    // are best-effort extras and must never make a saved capture look lost.
+    broadcast({ evt: 'shots-updated' });
 
     // Auto-copy applies to full-page captures too, using the same reliable
     // in-page clipboard path as visible captures (full-page only works on
-    // normal pages, so injection is available). Very large stitches skip the
-    // base64 round-trip and fall back to the offscreen document, which reads
-    // the blob back from IndexedDB by id.
-    const settings = await getSettings();
+    // normal pages, so injection is available). Large stitches skip the
+    // base64 round-trip (slow on multi-MB images) and fall back to the
+    // offscreen document, which reads the blob back from IndexedDB by id.
     let copied = false;
-    if (settings.autoCopy) {
-      const MAX_INLINE_COPY_BYTES = 24 * 1024 * 1024;
-      if (stitched.blob.size <= MAX_INLINE_COPY_BYTES) {
-        copied = await copyToClipboard(tab.id, await blobToDataUrl(stitched.blob));
-      } else {
-        copied = await offscreenSend({ op: 'copy-shot', id: meta.id });
+    try {
+      const settings = await getSettings();
+      if (settings.autoCopy) {
+        const MAX_INLINE_COPY_BYTES = 8 * 1024 * 1024;
+        if (stitched.blob.size <= MAX_INLINE_COPY_BYTES) {
+          copied = await copyToClipboard(tab.id, await blobToDataUrl(stitched.blob));
+        } else {
+          copied = await offscreenSend({ op: 'copy-shot', id: meta.id });
+        }
       }
-    }
+    } catch { /* the capture is already saved; copy failure is non-fatal */ }
 
     // Same unmistakable feedback as visible captures (flash, pill, badge) —
     // the popup may be closed, especially for shortcut captures.
@@ -482,8 +508,6 @@ export async function startFullCapture() {
       tab.id,
       copied ? 'Full page saved · copied to clipboard' : 'Full page saved temporarily'
     );
-
-    broadcast({ evt: 'shots-updated' });
     broadcast({ evt: 'capture-done', id: meta.id, cancelled: fullCapture.cancelled });
     return { id: meta.id, cancelled: fullCapture.cancelled };
   } catch (err) {
@@ -491,7 +515,8 @@ export async function startFullCapture() {
     broadcast({ evt: 'capture-error', message: fullCapture.error });
     throw err;
   } finally {
-    // Always restore the page: unhide fixed elements, restore scroll position.
+    clearInterval(keepAlive);
+    // Restore the page if the error path skipped the pre-stitch cleanup.
     if (injected) {
       try { await sendToTab(tab.id, { op: 'cleanup' }); } catch { /* tab may be gone */ }
     }

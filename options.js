@@ -30,8 +30,11 @@ function flash(message) {
         const cmd = commands.find((c) => c.name === name);
         return cmd?.shortcut || 'not set';
       };
-      $('shortcut-area').textContent = label('capture-area');
-      $('shortcut-visible').textContent = label('capture-visible');
+      // Command-name legacy note: "capture-visible" is the PRIMARY shortcut
+      // and now performs area selection; "capture-area" is the instant
+      // whole-viewport capture. See the comment in service_worker.js.
+      $('shortcut-area').textContent = label('capture-visible');
+      $('shortcut-visible').textContent = label('capture-area');
       $('shortcut-fullpage').textContent = label('capture-fullpage');
     } catch { /* keep defaults */ }
   }

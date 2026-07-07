@@ -180,15 +180,27 @@ async function render() {
 function showProgress(current, total) {
   $('progress').classList.remove('hidden');
   $('btn-fullpage').disabled = true;
+  $('btn-cancel').style.display = '';
   $('progress-label').textContent = total
     ? `Capturing section ${Math.min(current + 1, total)} of ${total}…`
     : 'Preparing capture…';
   $('progress-bar').style.width = total ? `${Math.round((current / total) * 100)}%` : '0%';
 }
 
+// Capturing is done; the worker is now merging and encoding the sections.
+// Cancel is hidden because there's nothing left to cancel at this point.
+function showStitching(count) {
+  $('progress').classList.remove('hidden');
+  $('btn-fullpage').disabled = true;
+  $('btn-cancel').style.display = 'none';
+  $('progress-label').textContent = `Stitching ${count} sections… (a few seconds for long pages)`;
+  $('progress-bar').style.width = '100%';
+}
+
 function hideProgress() {
   $('progress').classList.add('hidden');
   $('btn-fullpage').disabled = false;
+  $('btn-cancel').style.display = '';
 }
 
 chrome.runtime.onMessage.addListener((msg) => {
@@ -199,6 +211,9 @@ chrome.runtime.onMessage.addListener((msg) => {
       break;
     case 'capture-progress':
       showProgress(msg.current, msg.total);
+      break;
+    case 'capture-stitching':
+      showStitching(msg.count);
       break;
     case 'capture-done':
       hideProgress();
@@ -281,12 +296,14 @@ $('edit-shortcuts').addEventListener('click', (e) => {
   settings = await getSettings();
 
   // Show the user's actual shortcuts (they may have rebound them at
-  // chrome://extensions/shortcuts).
+  // chrome://extensions/shortcuts). Command-name note: "capture-visible" is
+  // the legacy name of the PRIMARY shortcut, which now does area selection —
+  // see the comment in service_worker.js.
   try {
     const commands = await chrome.commands.getAll();
     const shortcut = (name) => commands.find((c) => c.name === name)?.shortcut || 'not set';
     $('shortcut-hint').textContent =
-      `Area: ${shortcut('capture-area')} · Visible: ${shortcut('capture-visible')}`;
+      `Area: ${shortcut('capture-visible')} · Visible: ${shortcut('capture-area')}`;
   } catch { /* keep default hint */ }
 
   // Sweep expired shots on open so the gallery never shows stale items.

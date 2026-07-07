@@ -14,8 +14,12 @@
  * failing, we downscale the whole stitch proportionally to fit.
  */
 
-const MAX_DIMENSION = 16000;   // conservative per-side canvas limit (device px)
-const MAX_AREA = 100_000_000;  // conservative total-pixel cap (~100 MP)
+// Kept well under what canvases technically allow: encoding a huge PNG can
+// take so long that Chrome kills the idle service worker mid-stitch, which
+// looks to the user like a capture that silently never finishes. ~50 MP
+// encodes in a few seconds; anything taller gets proportionally downscaled.
+const MAX_DIMENSION = 12000;  // per-side canvas limit (device px)
+const MAX_AREA = 50_000_000;  // total-pixel cap (~50 MP)
 
 /**
  * @param {Array<{y:number, dataUrl:string}>} segments — y in CSS px (actual

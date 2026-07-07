@@ -42,14 +42,23 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 // shortcut) at chrome://extensions/shortcuts — extensions cannot change
 // bindings programmatically; that page is user-controlled by design.
 // Pressing a shortcut grants activeTab, so capture works without host perms.
+// NOTE on command names: Chrome remembers a user's shortcut binding per
+// command *name*, and users' muscle memory lives on the original primary
+// shortcut. So the primary command keeps its historical name
+// "capture-visible" but now triggers drag-to-select area capture (what users
+// actually want on their main key), while "capture-area" is the instant
+// whole-viewport capture. Renaming the commands would silently unbind
+// everyone's customized shortcuts on update.
 chrome.commands.onCommand.addListener((command) => {
   if (command === 'capture-visible') {
-    captureVisible('command').catch(() => {
-      // captureVisible already surfaced a notification on failure.
-    });
-  } else if (command === 'capture-area') {
+    // Primary shortcut (Alt+Shift+S default) → crosshair area selection.
     startRegionCapture('command').catch(() => {
       // startRegionCapture already surfaced a notification on failure.
+    });
+  } else if (command === 'capture-area') {
+    // Secondary shortcut (Alt+Shift+A default) → instant visible capture.
+    captureVisible('command').catch(() => {
+      // captureVisible already surfaced a notification on failure.
     });
   } else if (command === 'capture-fullpage') {
     // Popup is closed during a shortcut capture, so report the outcome via a
